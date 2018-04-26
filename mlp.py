@@ -21,7 +21,7 @@ def MAPE(y_true, y_pred):
 
 # Loading Data
 df = pd.read_csv("ts.csv", header=0)
-# oi
+
 MIN_T = 5
 MAX_T = 15
 STEP_T = 5
