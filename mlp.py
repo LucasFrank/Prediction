@@ -12,6 +12,7 @@ import matplotlib.pyplot as plt
 import collections
 import math
 import csv
+import os 
 
 def MAPE(y_true, y_pred):
 	errors = 0
@@ -20,7 +21,7 @@ def MAPE(y_true, y_pred):
 	return errors / len(y_pred)
 
 # Loading Data
-df = pd.read_csv("ts.csv", header=0)
+df = pd.read_csv("eng.csv", header=0)
 
 MIN_T = 5
 MAX_T = 15
@@ -40,9 +41,17 @@ df['date'] = pd.to_datetime(df['date'])
 df.index = df['date']
 del df['date']
 
+print(df)
+
 for t in xrange(MIN_T, MAX_T + 1, STEP_T):
-	with open('./{}/RBM_{}.csv'.format(t, t), 'wb') as rbm_file:
-		with open('./{}/NN_{}.csv'.format(t, t), 'wb') as nn_file:
+	pathRBM = './{}/'.format(t)
+	if not os.path.exists(pathRBM):
+		os.makedirs(pathRBM)
+	with open(pathRBM + 'RBM_{}.csv'.format(t), 'wb') as rbm_file:
+		pathNN = './{}/'.format(t)
+		if not os.path.exists(pathNN):
+			os.makedirs(pathNN)
+		with open(pathNN + 'NN_{}.csv'.format(t), 'wb') as nn_file:
 			# Reading CSV
 			rbmwriter = csv.writer(rbm_file, delimiter=',', quoting=csv.QUOTE_MINIMAL)
 			nnwriter  = csv.writer(nn_file, delimiter=',', quoting=csv.QUOTE_MINIMAL)
@@ -54,8 +63,9 @@ for t in xrange(MIN_T, MAX_T + 1, STEP_T):
 			# Pre-processing
 
 			# Resampling to aggregate in time windows of T minutes
-			df = df.resample('{}Min'.format(t)).sum()
-
+			df = df.resample('{}Min'.format(t), how='sum')
+			print(df)
+			exit()
 			# Changing n/a to 0
 			df = df.fillna(0)			
 
