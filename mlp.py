@@ -23,7 +23,11 @@ def MAPE(y_true, y_pred):
 # Loading Data
 df = pd.read_csv("eng.csv", header=0)
 
-MIN_T = 5
+# T - Group size(in minutes) to resample the data
+# P - How much minutes i'm looking foward in time
+# Q - How much weeks i'm looking back in time
+# N - Hidden layers size
+MIN_T = 5 
 MAX_T = 15
 STEP_T = 5
 MIN_P = 10
@@ -41,16 +45,16 @@ df['date'] = pd.to_datetime(df['date'])
 df.index = df['date']
 del df['date']
 
-print(df)
-
 for t in xrange(MIN_T, MAX_T + 1, STEP_T):
+	# Verify if the folder already exists
 	pathRBM = './{}/'.format(t)
+	pathNN = './{}/'.format(t)
 	if not os.path.exists(pathRBM):
 		os.makedirs(pathRBM)
+	if not os.path.exists(pathNN):
+		os.makedirs(pathNN)
+
 	with open(pathRBM + 'RBM_{}.csv'.format(t), 'wb') as rbm_file:
-		pathNN = './{}/'.format(t)
-		if not os.path.exists(pathNN):
-			os.makedirs(pathNN)
 		with open(pathNN + 'NN_{}.csv'.format(t), 'wb') as nn_file:
 			# Reading CSV
 			rbmwriter = csv.writer(rbm_file, delimiter=',', quoting=csv.QUOTE_MINIMAL)
@@ -64,8 +68,7 @@ for t in xrange(MIN_T, MAX_T + 1, STEP_T):
 
 			# Resampling to aggregate in time windows of T minutes
 			df = df.resample('{}Min'.format(t), how='sum')
-			print(df)
-			exit()
+
 			# Changing n/a to 0
 			df = df.fillna(0)			
 
@@ -124,16 +127,16 @@ for t in xrange(MIN_T, MAX_T + 1, STEP_T):
 						for i in range(len(df1) - p):
 							X = list()
 							for j in range (1, q + 1):
-								X.append(df1['count-{}'.format(j)][i + p + 1])
+								X.append(df1['count-{}'.format(j)][i + p])
 							X1.append(flatten(X + flatten(df1['count'][i:(i + p)])))
-							Y1.append(df1['count'][i + p + 1])
+							Y1.append(df1['count'][i + p])
 
 						for i in range(len(df2) - p):
 							X = list()
 							for j in range (1, q + 1):
-								X.append(df2['count-{}'.format(j)][i + p + 1])
+								X.append(df2['count-{}'.format(j)][i + p])
 							X2.append(flatten(X + flatten(df2['count'][i:(i + p)])))
-							Y2.append(df2['count'][i + p + 1])
+							Y2.append(df2['count'][i + p])
 						
 						print('   Splitting in train-test...')
 						# Train/test/validation split
@@ -183,6 +186,7 @@ for t in xrange(MIN_T, MAX_T + 1, STEP_T):
 							predicted1 = regressor1.predict(X1_test)
 							regressor2.fit(X2_train, Y2_train)
 							predicted2 = regressor2.predict(X2_test)
+
 							results_rbm1.append(MAPE(Y1_test, predicted1))
 							results_rbm2.append(MAPE(Y2_test, predicted2))
 
