@@ -4,7 +4,7 @@ from sklearn.svm import SVR
 from sklearn.neural_network import MLPRegressor
 from sklearn.pipeline import Pipeline
 from pandas.tseries.offsets import BDay
-from compiler.ast import flatten
+#from compiler.ast import flatten
 import numpy as np
 import random
 import pandas as pd
@@ -12,6 +12,7 @@ import matplotlib.pyplot as plt
 import collections
 import math
 import csv
+import time
 import os 
 
 def MAPE(y_true, y_pred):
@@ -20,6 +21,16 @@ def MAPE(y_true, y_pred):
 		errors = errors + (abs((float(y_true[i]) - float(y_pred[i]))) / float(y_true[i]))
 	return errors / len(y_pred)
 
+def RSquared(y_true, y_pred_nn, y_pred_rbm):
+	SStot = 0
+	SSres = 0
+
+	for i in range(len(y_true)):
+		SStot = SStot + (float(y_true[i]) - float(y_pred_rbm[i]))**2
+		SSres = SSres + (float(y_true[i]) - float(y_pred_nn[i]))**2
+
+	return 1 - SSres/SStot
+
 # Loading Data
 df = pd.read_csv("eng.csv", header=0)
 
@@ -27,16 +38,16 @@ df = pd.read_csv("eng.csv", header=0)
 # P - How much minutes i'm looking foward in time
 # Q - How much weeks i'm looking back in time
 # N - Hidden layers size
-MIN_T = 5 
+MIN_T = 5
 MAX_T = 15
 STEP_T = 5
-MIN_P = 10
+MIN_P = 80
 MAX_P = 100
 STEP_P = 10
 MIN_Q = 1
-MAX_Q = 3
+MAX_Q = 5
 STEP_Q = 1
-MIN_N = 60
+MIN_N = 80
 MAX_N = 120
 STEP_N = 10
 
@@ -45,7 +56,7 @@ df['date'] = pd.to_datetime(df['date'])
 df.index = df['date']
 del df['date']
 
-for t in xrange(MIN_T, MAX_T + 1, STEP_T):
+for t in range(MIN_T, MAX_T + 1, STEP_T):
 	# Verify if the folder already exists
 	pathRBM = './{}/'.format(t)
 	pathNN = './{}/'.format(t)
@@ -54,8 +65,8 @@ for t in xrange(MIN_T, MAX_T + 1, STEP_T):
 	if not os.path.exists(pathNN):
 		os.makedirs(pathNN)
 
-	with open(pathRBM + 'RBM_{}.csv'.format(t), 'wb') as rbm_file:
-		with open(pathNN + 'NN_{}.csv'.format(t), 'wb') as nn_file:
+	with open(pathRBM + 'RBM_{}.csv'.format(t), 'w') as rbm_file:
+		with open(pathNN + 'NN_{}.csv'.format(t), 'w') as nn_file:
 			# Reading CSV
 			rbmwriter = csv.writer(rbm_file, delimiter=',', quoting=csv.QUOTE_MINIMAL)
 			nnwriter  = csv.writer(nn_file, delimiter=',', quoting=csv.QUOTE_MINIMAL)
@@ -77,7 +88,8 @@ for t in xrange(MIN_T, MAX_T + 1, STEP_T):
 
 			# Using historic data (Q) from the same time and weekday
 			for i in range (1, MAX_Q + 1):
-				df['count-{}'.format(i)] = df['count'].shift(i * 7 * 24 * 60 / t)
+				df['count-{}'.format(i)] = df['count'].shift(i * 7 * 24 * 60 // t)
+
 
 			# Change n/a to 1
 			df = df.fillna(1)
@@ -104,16 +116,16 @@ for t in xrange(MIN_T, MAX_T + 1, STEP_T):
 			for i in range (1, MAX_Q + 1):
 				df2['count-{}'.format(i)] = df2['count-{}'.format(i)] / (df2_max - df2_min)
 
-			for p in xrange(MIN_P, MAX_P + 1, STEP_P):
-				for q in xrange(MIN_Q, MAX_Q + 1, STEP_Q):
+			for p in range(MIN_P, MAX_P + 1, STEP_P):
+				for q in range(MIN_Q, MAX_Q + 1, STEP_Q):
 					aux_df1 = df1
 					aux_df2 = df2
 
 					# Shifiting the data set by Q weeks
-					df1 = df1[q * (5 * 13 * 60 / t + 5):]
-					df2 = df2[q * (5 * 11 * 60 / t - 5):]
+					df1 = df1[q * (5 * 13 * 60 // t + 5):]
+					df2 = df2[q * (5 * 11 * 60 // t - 5):]
 
-					for n in xrange(MIN_N, MAX_N + 1, STEP_N):
+					for n in range(MIN_N, MAX_N + 1, STEP_N):
 						print('Running for params P = {}, Q = {}, N = {}'.format(p, q, n))
 						print('Pre-processing...')
 
@@ -124,19 +136,19 @@ for t in xrange(MIN_T, MAX_T + 1, STEP_T):
 						Y2 = list()
 
 						# Mapping each set of variables (P and Q) to their correspondent value
-						for i in range(len(df1) - p):
+						for i in range(len(df1) - p - 1):
 							X = list()
 							for j in range (1, q + 1):
-								X.append(df1['count-{}'.format(j)][i + p])
-							X1.append(flatten(X + flatten(df1['count'][i:(i + p)])))
-							Y1.append(df1['count'][i + p])
+								X.append(df1['count-{}'.format(j)][i + p + 1])
+							X1.append(X + list(df1['count'][i:(i + p)]))
+							Y1.append(df1['count'][i + p + 1])
 
-						for i in range(len(df2) - p):
+						for i in range(len(df2) - p - 1):
 							X = list()
 							for j in range (1, q + 1):
-								X.append(df2['count-{}'.format(j)][i + p])
-							X2.append(flatten(X + flatten(df2['count'][i:(i + p)])))
-							Y2.append(df2['count'][i + p])
+								X.append(df2['count-{}'.format(j)][i + p + 1])
+							X2.append(X + list(df2['count'][i:(i + p)]))
+							Y2.append(df2['count'][i + p + 1])
 						
 						print('   Splitting in train-test...')
 						# Train/test/validation split
@@ -154,47 +166,64 @@ for t in xrange(MIN_T, MAX_T + 1, STEP_T):
 
 						print('   Initializing the models...')
 						# Initializing the models
-						MLP1 = MLPRegressor(hidden_layer_sizes=n, activation='logistic')
-						MLP2 = MLPRegressor(hidden_layer_sizes=n, activation='logistic')
-						SVR1 = SVR()
-						SVR2 = SVR()
-						RBM1 = BernoulliRBM(verbose=False, n_components=n)
-						RBM2 = BernoulliRBM(verbose=False, n_components=n)
-						regressor1 = Pipeline(steps=[('rbm', RBM1), ('SVR', SVR1)])
-						regressor2 = Pipeline(steps=[('rbm', RBM2), ('SVR', SVR2)])
+						MLP1 = Pipeline(steps=[('rbm', BernoulliRBM(verbose=False, n_components=n)),
+								       ('mlp', MLPRegressor(hidden_layer_sizes=(n, n, n,), activation='logistic'))])
+						MLP2 = Pipeline(steps=[('rbm', BernoulliRBM(verbose=False, n_components=n)),
+								       ('mlp', MLPRegressor(hidden_layer_sizes=(n, n, n,), activation='logistic'))])
+						regressor1 = Pipeline(steps=[('rbm1', BernoulliRBM(verbose=False, n_components=n)),
+													('rbm2', BernoulliRBM(verbose=False, n_components=n)), 
+								    				('rbm3', BernoulliRBM(verbose=False, n_components=n)),
+	    	 										('SVR', SVR())])
+						regressor2 = Pipeline(steps=[('rbm1', BernoulliRBM(verbose=False, n_components=n)),
+													('rbm2', BernoulliRBM(verbose=False, n_components=n)), 
+									     			('rbm3', BernoulliRBM(verbose=False, n_components=n)),
+									     			('SVR', SVR())])
 
 						results_nn1 = list()
 						results_nn2 = list()
 						results_rbm1 = list()
 						results_rbm2 = list()
+						results_r21 = list()
+						results_r22 = list()
+
+						avg_mlp_time1 = 0
+						avg_mlp_time2 = 0
+						avg_rbm_time1 = 0
+						avg_rbm_time2 = 0
+
 						print('Running tests...')
 						for test in range(0, 30):
 							if(test % 6 == 5):
 								print('T = {}%'.format(int(((test + 1)*100)/30)))
+
+							start_time = time.time()
 							MLP1.fit(X1_train, Y1_train)
-							predicted1 = MLP1.predict(X1_test)
+							predicted1_nn = MLP1.predict(X1_test)
+							avg_mlp_time1 = avg_mlp_time1 + time.time() - start_time
 							MLP2.fit(X2_train, Y2_train)
-							predicted2 = MLP2.predict(X2_test)
-
-							predicted1 = list(predicted1)
-							predicted2 = list(predicted2)
-
-							results_nn1.append(MAPE(Y1_test, predicted1))
-							results_nn2.append(MAPE(Y2_test, predicted2))
+							predicted2_nn = MLP2.predict(X2_test)
+							avg_mlp_time2 = avg_mlp_time2 + time.time() - start_time
+							results_nn1.append(MAPE(Y1_test, predicted1_nn))
+							results_nn2.append(MAPE(Y2_test, predicted2_nn))
 							
 							regressor1.fit(X1_train, Y1_train)
-							predicted1 = regressor1.predict(X1_test)
+							predicted1_rbm = regressor1.predict(X1_test)
+							avg_rbm_time1 = avg_rbm_time1 + time.time() - start_time
 							regressor2.fit(X2_train, Y2_train)
-							predicted2 = regressor2.predict(X2_test)
+							predicted2_rbm = regressor2.predict(X2_test)
+							avg_rbm_time2 = avg_rbm_time2 + time.time() - start_time
+							results_rbm1.append(MAPE(Y1_test, predicted1_rbm))
+							results_rbm2.append(MAPE(Y2_test, predicted2_rbm))
 
-							results_rbm1.append(MAPE(Y1_test, predicted1))
-							results_rbm2.append(MAPE(Y2_test, predicted2))
+							results_r21.append(RSquared(Y1_test, predicted1_nn, predicted1_rbm))
+							results_r22.append(RSquared(Y2_test, predicted2_nn, predicted2_rbm))
 
-						nnwriter.writerow([p, q, n, 1, np.mean(results_nn1), min(results_nn1)])
-						rbmwriter.writerow([p, q, n, 1, np.mean(results_rbm1), min(results_rbm1)])
+						nnwriter.writerow([p, q, n, 1, np.mean(results_nn1), min(results_nn1), np.mean(results_r21), avg_mlp_time1 / 30])
+						rbmwriter.writerow([p, q, n, 1, np.mean(results_rbm1), min(results_rbm1), avg_rbm_time1 / 30])
 
-						nnwriter.writerow([p, q, n, 2, np.mean(results_nn2), min(results_nn2)])
-						rbmwriter.writerow([p, q, n, 2, np.mean(results_rbm2), min(results_rbm2)])
+						nnwriter.writerow([p, q, n, 2, np.mean(results_nn2), min(results_nn2), np.mean(results_r22), avg_mlp_time2 / 30])
+						rbmwriter.writerow([p, q, n, 2, np.mean(results_rbm2), min(results_rbm2), avg_rbm_time2 / 30])
+
 						print('- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -')
 					print('> > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > >')
 					df1 = aux_df1
